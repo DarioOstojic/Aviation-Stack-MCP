@@ -44,6 +44,24 @@ public class AviationStackClient {
         return sendGetRequest("/airports", params);
     }
 
+    public String getRoutes(Map<String, String> params)
+            throws IOException, InterruptedException {
+
+        return sendGetRequest("/routes", params);
+    }
+
+    public String getFutureFlights(Map<String, String> params)
+            throws IOException, InterruptedException {
+
+        return sendGetRequest("/flightsFuture", params);
+    }
+
+    public String getTimetable(Map<String, String> params)
+            throws IOException, InterruptedException {
+
+        return sendGetRequest("/timetable", params);
+    }
+
     private String sendGetRequest(String endpoint, Map<String, String> params)
             throws IOException, InterruptedException {
 
@@ -66,7 +84,7 @@ public class AviationStackClient {
                 httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() != 200) {
-            throw new RuntimeException("HTTP error: " + response.statusCode());
+            throw new RuntimeException("HTTP error: " + response.statusCode() + " - " + response.body());
         }
 
         return response.body();
