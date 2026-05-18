@@ -1,7 +1,7 @@
 # ----------------------------
 # Stage 1: Build the application
 # ----------------------------
-FROM gradle:8.2.1-jdk17 AS build
+FROM eclipse-temurin:25-jdk AS build
 WORKDIR /app
 
 # Copy Gradle wrapper and project files
@@ -19,7 +19,7 @@ RUN ./gradlew clean build -x test --no-daemon
 # ----------------------------
 # Stage 2: Run the application
 # ----------------------------
-FROM eclipse-temurin:17-jdk-alpine
+FROM eclipse-temurin:25-jdk
 WORKDIR /app
 
 # Copy the built JAR from the build stage
