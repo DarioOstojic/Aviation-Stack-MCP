@@ -2,27 +2,94 @@
 
 A Spring Boot MCP (Model Context Protocol) server that exposes [AviationStack](https://aviationstack.com/) flight data as tools for AI applications.
 
+This server is one half of the applied case study described in the accompanying thesis, *Does MCP Deliver on Performance and Practical Usage? Testing REST and MCP Through a Controlled Experiment and a Real-World Case Study*. Its companion server, which exposes weather data instead of flight data, is [Open-Meteo-MCP](https://github.com/DarioOstojic/Open-Meteo-MCP). Together, the two servers demonstrate how an LLM application can coordinate multiple external APIs through MCP without needing custom routing logic for each one.
+
+---
+
+## Table of Contents
+
+- [Glossary](#glossary)
+- [Overview](#overview)
+- [Tech Stack](#tech-stack)
+- [Available Tools](#available-tools)
+- [Configuration](#configuration)
+- [Running the Server](#running-the-server)
+- [Connecting to Claude Desktop](#connecting-to-claude-desktop)
+- [Testing the Connection](#testing-the-connection)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## Glossary
+
+| Term | Meaning |
+|---|---|
+| **MCP tool** | A callable function exposed by an MCP server, with a natural-language description of what it does, the inputs it requires and the output it returns. An LLM reads these descriptions to decide which tool to call for a given request. |
+| **Streamable HTTP** | One of the transport protocols MCP supports for communication between a client and a server. It allows a client to connect to a server over a normal HTTP connection, as opposed to running the server as a local process. This server uses Streamable HTTP rather than stdio. |
+| **stdio** | Short for **st**andard **i**nput/**o**utput, another MCP transport in which the client starts the server as a local subprocess and communicates with it directly through process input and output, rather than over a network connection. |
+| **`mcp-remote`** | A small command-line bridge that allows MCP clients which only support local (stdio) servers, such as Claude Desktop, to connect to a remote server over HTTP. It runs locally, forwards requests to the remote server and can attach custom headers such as an API key along the way. |
+| **IATA / ICAO code** | Standard airport and airline identifiers used throughout the aviation industry. IATA codes are three letters (for example, `FRA` for Frankfurt Airport); ICAO codes are four letters (for example, `EDDF` for the same airport). |
+| **Custom connector** | The mechanism Claude Desktop and claude.ai use to connect to a remote MCP server through a graphical settings page, as an alternative to editing the configuration file directly. |
+
+---
+
 ## Overview
 
-This server acts as a bridge between AI assistants (via MCP) and the AviationStack REST API, enabling natural language queries for real-time aviation data such as flight status, routes, and airline information.
+This server acts as a bridge between AI assistants and the AviationStack REST API, allowing an LLM to query real-time aviation data using natural language rather than having to call the underlying REST endpoints directly. It wraps several AviationStack endpoints (flights, airlines, airports, routes, and scheduled flights) as MCP tools, each with its own description and set of parameters, so that an LLM can reason about which tool to call based on what the user is actually asking for.
+
+In the applied case study from the accompanying thesis, this server was deployed publicly and connected to Claude Desktop alongside a second MCP server exposing weather data. Given a single natural-language request such as asking for sunny travel destinations with direct flights, Claude was able to call tools from both servers, combine their results and produce a single structured answer, without any custom code dictating which API should be called for which part of the request.
+
+---
 
 ## Tech Stack
 
 - **Java 25** / Spring Boot 3.5
-- **Spring AI MCP Server** — exposes aviation tools over the Model Context Protocol
-- **AviationStack API** — external data source
-- **Docker** — containerized deployment
+- **Spring AI MCP Server** — exposes the aviation tools over [Streamable HTTP](#glossary)
+- **AviationStack API** — the external REST API this server wraps
+- **Docker** — used for containerized deployment
+
+---
+
+## Available Tools
+
+The server exposes the following [MCP tools](#glossary), each corresponding to an AviationStack endpoint:
+
+| Tool | Description |
+|---|---|
+| `getFlights` | Returns real-time flight information, including status, aircraft type, and airline. Can be filtered by airline. |
+| `getAirlines` | Returns airline information, including IATA/ICAO codes and names. |
+| `getAirports` | Returns airport information, including location and IATA/ICAO codes. Can be filtered by country. |
+| `getRoutes` | Returns flight routes between airports, filterable by departure airport, arrival airport, airline, or flight number. |
+| `getScheduledFlights` | Returns scheduled arrivals or departures for a specific airport. Without a date, or for a date within the next 7 days, this returns the live timetable; for dates further ahead, it automatically switches to AviationStack's future-flights endpoint. Only high-traffic airports are supported, and AviationStack rate-limits this particular endpoint more aggressively (1 request per 10 seconds on a paid plan, 1 per 60 seconds on the free plan). |
+
+The exact parameters each tool accepts are defined directly in the tool descriptions, which the LLM reads at call time; they are not duplicated here to avoid the descriptions drifting out of sync with the code.
+
+---
 
 ## Configuration
 
-Set the following environment variables before running:
+The server requires two environment variables to be set before it will start successfully.
 
 | Variable | Description |
 |---|---|
-| `AVIATIONSTACK_API_KEY` | Your AviationStack API key |
-| `X_API_HEADER_KEY` | Auth key for MCP client requests |
+| `AVIATIONSTACK_API_KEY` | An API key for the AviationStack service itself. A free key can be obtained by registering at [aviationstack.com](https://aviationstack.com/). |
+| `X_API_HEADER_KEY` | A key chosen when deploying this server, used to authenticate incoming MCP requests. Any client connecting to this server must send this same value in an `X-API-Key` header, or its requests will be rejected. |
 
-## Running
+The `X_API_HEADER_KEY` is not provided by AviationStack; it is a value defined when deploying this server, and the same value then needs to be supplied by every MCP client that connects to it. This mechanism exists because the server is designed to be deployed publicly, and without it, anyone who discovers the server's URL could call its tools and consume the AviationStack quota.
+
+---
+
+## Running the Server
+
+### Step 1: Obtain an AviationStack API key
+
+An API key can be obtained by creating a free account at [aviationstack.com](https://aviationstack.com/). The free tier is sufficient for testing and for the scope of this project.
+
+### Step 2: Choose a value for the MCP authentication key
+
+This is not retrieved from anywhere; it is simply a value chosen, such as a long random string, to be used as the `X_API_HEADER_KEY`. The same value will need to be entered into Claude Desktop's configuration later, so it should be noted down somewhere accessible.
+
+### Step 3: Run the server
 
 ```bash
 # With Gradle
@@ -36,4 +103,83 @@ docker run -p 8080:8080 \
   aviation-stack-mcp
 ```
 
-The server starts on port `8080`.
+The server starts on port `8080`. Once running, the MCP endpoint is available at `http://localhost:8080/mcp`.
+
+A request to that endpoint without the correct `X-API-Key` header will be rejected, which is expected behaviour rather than a misconfiguration; this is exactly what the authentication step in [Configuration](#configuration) is meant to enforce.
+
+---
+
+## Connecting to Claude Desktop
+
+Claude Desktop's two supported ways of reaching a remote MCP server are a graphical [custom connector](#glossary), and a manual edit of its configuration file. Which one applies depends on whether the server is reachable from the public internet or only running locally.
+
+### Option A: Public deployment, using a custom connector
+
+If this server has been deployed somewhere publicly reachable (the applied case study in the thesis used Render, but any host that allows outbound traffic to reach the deployed URL would work the same way), it can be added directly through Claude Desktop's settings:
+
+1. Open Claude Desktop and go to **Settings → Connectors**.
+2. Select **Add custom connector**.
+3. Enter the deployed server's MCP endpoint URL, for example `https://your-deployed-url.onrender.com/mcp`.
+4. When prompted for authentication, supply the `X-API-Key` header using the same value set as `X_API_HEADER_KEY` when the server was deployed.
+5. Confirm and enable the connector.
+
+Custom connectors require a Pro, Max, Team, or Enterprise plan; they are not available on the free tier of Claude Desktop.
+
+### Option B: Local server, using a configuration file edit
+
+If the server is only running locally (for example, with `./gradlew bootRun` on `localhost:8080`), Claude Desktop's custom connector UI cannot reach it directly, since it does not run on the public internet. In this case, a small local bridge tool called [`mcp-remote`](#glossary) is used instead, configured through Claude Desktop's configuration file directly.
+
+1. Locate the configuration file:
+   - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+   This file can also be opened directly from Claude Desktop via **Settings → Developer → Edit Config**.
+
+2. Add an entry for this server under `mcpServers`. If the file already contains other servers, add this entry alongside them rather than replacing the file's contents.
+
+   ```json
+   {
+     "mcpServers": {
+       "aviation-stack": {
+         "command": "npx",
+         "args": [
+           "-y",
+           "mcp-remote",
+           "http://localhost:8080/mcp",
+           "--header",
+           "X-API-Key: your_secret"
+         ]
+       }
+     }
+   }
+   ```
+
+   The value after `X-API-Key:` must match the `X_API_HEADER_KEY` the server was started with in [Running the Server](#running-the-server).
+
+3. Save the file and restart Claude Desktop completely (quitting it rather than just closing the window).
+
+4. On restart, "aviation-stack" should appear as an available tool source, which can be confirmed through the tool/connector icon in the message input area.
+
+`npx` runs `mcp-remote` directly without requiring it to be installed separately beforehand, provided Node.js is already installed on the machine running Claude Desktop.
+
+---
+
+## Testing the Connection
+
+Once connected, a natural-language prompt referencing flight data should cause Claude to discover and call one of the tools listed in [Available Tools](#available-tools). For example, asking about direct flights between two specific airports should trigger the `getRoutes` tool, while asking about an airport's current departures should trigger `getScheduledFlights`.
+
+If Claude responds without attempting to call a tool, or states that it does not have access to flight data, the connection has likely not been established correctly; see [Troubleshooting](#troubleshooting) below.
+
+---
+
+## Troubleshooting
+
+**Claude Desktop does not list the connector after restarting.** Confirm that the configuration file is valid JSON; a single misplaced comma or bracket will cause Claude Desktop to silently ignore the entire file rather than reporting an error. Restarting must mean fully quitting the application, not just closing its window.
+
+**Requests are rejected with an authentication error.** Confirm that the `X-API-Key` header value used by the client exactly matches the `X_API_HEADER_KEY` the server was started with. If these were set at different times, it is easy for them to have drifted apart.
+
+**Tool calls succeed but return no data, or an AviationStack-specific error.** This usually indicates an issue with the `AVIATIONSTACK_API_KEY` itself, such as an invalid key or an exceeded quota on the free tier, rather than an issue with the MCP layer.
+
+**`getScheduledFlights` returns a rate-limit error.** This endpoint is rate-limited more aggressively by AviationStack than the others (see [Available Tools](#available-tools)); waiting between requests, or upgrading the AviationStack plan, resolves this.
+
+**The custom connector option in Claude Desktop is greyed out or unavailable.** Custom connectors require a paid Claude Desktop plan (Pro, Max, Team, or Enterprise); on the free tier, only the configuration file approach in [Option B](#option-b-local-server-using-a-configuration-file-edit) is available, and even then only for a locally running server.
