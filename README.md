@@ -578,5 +578,5 @@ If Claude responds without attempting to call a tool, or states that it does not
 
 ---
 
-_This case study is part of the same thesis that also conducted a controlled experiment which compared the latency and bandwidth performance of REST and MCP against each other. The repository for that experiment can be found at [MCP-REST-Performance-Comparison](https://github.com/DarioOstojic/MCP-REST-Performance-Comparison)._
+_This case study is part of the same thesis that also conducted a controlled experiment which compared the latency and bandwidth performance of MCP and REST against each other. The repository for that experiment can be found at [MCP-REST-Performance-Comparison](https://github.com/DarioOstojic/MCP-REST-Performance-Comparison)._
 
