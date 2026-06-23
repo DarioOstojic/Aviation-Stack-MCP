@@ -30,6 +30,7 @@ This server is one half of the applied case study described in the accompanying 
 
 ---
 
+<a id="glossary"></a>
 ## 📖 Glossary
 
 | Term | Meaning |
@@ -45,6 +46,7 @@ This server is one half of the applied case study described in the accompanying 
 
 ---
 
+<a id="overview"></a>
 ## 🔭 Overview
 
 This server acts as a bridge between AI assistants and the AviationStack REST API, allowing an LLM to query real-time aviation data using natural language rather than having to call the underlying REST endpoints directly. It wraps several AviationStack endpoints (flights, airlines, airports, routes and scheduled flights) as MCP tools, each with its own description and set of parameters, so that an LLM can reason about which tool to call based on what the user is actually asking for.
@@ -53,6 +55,7 @@ In the applied case study from the accompanying thesis, this server was deployed
 
 ---
 
+<a id="tech-stack"></a>
 ## 🧱 Tech Stack
 
 - **Java 25 / Spring Boot 3.5**
@@ -62,6 +65,7 @@ In the applied case study from the accompanying thesis, this server was deployed
 
 ---
 
+<a id="available-tools"></a>
 ## 🛠️ Available Tools
 
 The server exposes the following [MCP tools](#glossary), each corresponding to an AviationStack endpoint:
@@ -78,6 +82,7 @@ The exact parameters each tool accepts are defined directly in the tool descript
 
 ---
 
+<a id="project-structure"></a>
 ## 🗂️ Project Structure
 
 ```
@@ -159,6 +164,7 @@ Now that the code execution process was shown, here's an explanation of what eac
 
 ---
 
+<a id="configuration"></a>
 ## ⚙️ Configuration
 
 The server requires two environment variables to be set before it will start successfully.
@@ -172,6 +178,7 @@ The `X_API_HEADER_KEY` is not provided by AviationStack; it is a value defined w
 
 ---
 
+<a id="running-the-server"></a>
 ## 🚀 Running the Server
 
 ### Step 1: Obtain an AviationStack API key
@@ -202,6 +209,7 @@ A request to that endpoint without the correct `X-API-Key` header will be reject
 
 ---
 
+<a id="connecting-to-claude-desktop"></a>
 ## 🔌 Connecting to Claude Desktop
 
 Claude Desktop's two supported ways of reaching a remote MCP server are a graphical [custom connector](#glossary), and a manual edit of its configuration file. Which one applies depends on whether the server is reachable from the public internet or only running locally.
@@ -257,6 +265,7 @@ If the server is only running locally (for example, with `./gradlew bootRun` on 
 
 ---
 
+<a id="testing-the-connection"></a>
 ## ✅ Testing the Connection
 
 Once connected, a natural-language prompt referencing flight data should cause Claude to discover and call one of the tools listed in [Available Tools](#available-tools). For example, asking about direct flights between two specific airports should trigger the `getRoutes` tool, while asking about an airport's current departures should trigger `getScheduledFlights`.
@@ -265,6 +274,7 @@ If Claude responds without attempting to call a tool, or states that it does not
 
 ---
 
+<a id="troubleshooting"></a>
 ## 🩺 Troubleshooting
 
 **Claude Desktop does not list the connector after restarting.** Confirm that the configuration file is valid JSON; a single misplaced comma or bracket will cause Claude Desktop to silently ignore the entire file rather than reporting an error. Restarting must mean fully quitting the application, not just closing its window.
