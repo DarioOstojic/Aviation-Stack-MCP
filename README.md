@@ -119,7 +119,7 @@ Before examining what each file does, it helps to see the order in which the cod
 
 5. The response then travels back the same way it came forward: AviationStack API → **`AviationStackClient.java`** → **`AviationStackTools.java`** → the client.
 
-**`AviationStackMcpApplication.java`** isn't part of this chain. It only runs once, when the server starts up, just to get everything else wired together and ready to go.
+**`AviationStackMcpApplication.java`** isn't part of this request-response chain. It only runs when the server starts, handing control over to Spring Boot so the Aviation-Stack-MCP server can load its runtime configuration, enable the authentication check and make the aviation MCP tools available.
 
 ### File-by-file reference
 
