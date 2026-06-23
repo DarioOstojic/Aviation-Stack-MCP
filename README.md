@@ -1,17 +1,27 @@
-# Aviation-Stack-MCP
+<div align="center">
+
+# ✈️ Aviation-Stack-MCP
 
 A Spring Boot MCP (Model Context Protocol) server that exposes [AviationStack](https://aviationstack.com/) flight data as tools for AI applications.
 
-This server is one half of the applied case study described in the accompanying thesis, *Does MCP Deliver on Performance and Practical Usage? Testing REST and MCP Through a Controlled Experiment and a Real-World Case Study*. Its companion server, which exposes weather data instead of flight data, is [Open-Meteo-MCP](https://github.com/DarioOstojic/Open-Meteo-MCP). Together, the two servers demonstrate how an LLM application can coordinate multiple external APIs through MCP without needing custom routing logic for each one.
+![Java](https://img.shields.io/badge/Java-25-007396?logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-6DB33F?logo=springboot&logoColor=white)
+![MCP](https://img.shields.io/badge/MCP-Streamable%20HTTP-8A2BE2)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
+
+</div>
+
+This server is one half of the applied case study described in the accompanying thesis, *Does MCP Deliver on Performance and Practical Usage?*. Its companion server, which exposes weather data instead of flight data, is [Open-Meteo-MCP](https://github.com/DarioOstojic/Open-Meteo-MCP). Together, the two servers demonstrate how an LLM application can coordinate multiple external APIs through MCP without needing custom routing logic for each one.
 
 ---
 
-## Table of Contents
+## 📑 Table of Contents
 
 - [Glossary](#glossary)
 - [Overview](#overview)
 - [Tech Stack](#tech-stack)
 - [Available Tools](#available-tools)
+- [Project Structure](#project-structure)
 - [Configuration](#configuration)
 - [Running the Server](#running-the-server)
 - [Connecting to Claude Desktop](#connecting-to-claude-desktop)
@@ -20,37 +30,39 @@ This server is one half of the applied case study described in the accompanying 
 
 ---
 
-## Glossary
+## 📖 Glossary
 
 | Term | Meaning |
 |---|---|
-| **MCP tool** | A callable function exposed by an MCP server, with a natural-language description of what it does, the inputs it requires and the output it returns. An LLM reads these descriptions to decide which tool to call for a given request. |
+| **Spring Boot** | A widely used Java framework that simplifies building standalone, production-ready applications. It removes much of the manual setup (such as configuring a web server) that would otherwise be needed to run a Java application, allowing a project to start with a single command and a minimal amount of boilerplate code. This server and its companion Open-Meteo-MCP are both built on Spring Boot. |
+| **MCP tool** | A callable function exposed by an MCP server, with a natural-language description of what it does, the inputs it requires, and the output it returns. An LLM reads these descriptions to decide which tool to call for a given request. |
 | **Streamable HTTP** | One of the transport protocols MCP supports for communication between a client and a server. It allows a client to connect to a server over a normal HTTP connection, as opposed to running the server as a local process. This server uses Streamable HTTP rather than stdio. |
 | **stdio** | Short for **st**andard **i**nput/**o**utput, another MCP transport in which the client starts the server as a local subprocess and communicates with it directly through process input and output, rather than over a network connection. |
-| **`mcp-remote`** | A small command-line bridge that allows MCP clients which only support local (stdio) servers, such as Claude Desktop, to connect to a remote server over HTTP. It runs locally, forwards requests to the remote server and can attach custom headers such as an API key along the way. |
+| **`mcp-remote`** | A small command-line bridge that allows MCP clients which only support local (stdio) servers, such as Claude Desktop, to connect to a remote server over HTTP. It runs locally, forwards requests to the remote server, and can attach custom headers such as an API key along the way. |
 | **IATA / ICAO code** | Standard airport and airline identifiers used throughout the aviation industry. IATA codes are three letters (for example, `FRA` for Frankfurt Airport); ICAO codes are four letters (for example, `EDDF` for the same airport). |
 | **Custom connector** | The mechanism Claude Desktop and claude.ai use to connect to a remote MCP server through a graphical settings page, as an alternative to editing the configuration file directly. |
+| **Bean** | A Spring term for an object that Spring creates and manages on your behalf, rather than the code creating it directly with `new`. Once Spring knows how to build a bean, it can automatically supply that same instance to any other class that needs it — this is what `AviationStackConfiguration.java` does for `AviationStackClient`, so that `AviationStackTools.java` never has to construct one itself. |
 
 ---
 
-## Overview
+## 🔭 Overview
 
-This server acts as a bridge between AI assistants and the AviationStack REST API, allowing an LLM to query real-time aviation data using natural language rather than having to call the underlying REST endpoints directly. It wraps several AviationStack endpoints (flights, airlines, airports, routes, and scheduled flights) as MCP tools, each with its own description and set of parameters, so that an LLM can reason about which tool to call based on what the user is actually asking for.
+This server acts as a bridge between AI assistants and the AviationStack REST API, allowing an LLM to query real-time aviation data using natural language rather than having to call the underlying REST endpoints directly. It wraps several AviationStack endpoints (flights, airlines, airports, routes and scheduled flights) as MCP tools, each with its own description and set of parameters, so that an LLM can reason about which tool to call based on what the user is actually asking for.
 
 In the applied case study from the accompanying thesis, this server was deployed publicly and connected to Claude Desktop alongside a second MCP server exposing weather data. Given a single natural-language request such as asking for sunny travel destinations with direct flights, Claude was able to call tools from both servers, combine their results and produce a single structured answer, without any custom code dictating which API should be called for which part of the request.
 
 ---
 
-## Tech Stack
+## 🧱 Tech Stack
 
-- **Java 25** / Spring Boot 3.5
+- **Java 25 / Spring Boot 3.5**
 - **Spring AI MCP Server** — exposes the aviation tools over [Streamable HTTP](#glossary)
 - **AviationStack API** — the external REST API this server wraps
 - **Docker** — used for containerized deployment
 
 ---
 
-## Available Tools
+## 🛠️ Available Tools
 
 The server exposes the following [MCP tools](#glossary), each corresponding to an AviationStack endpoint:
 
@@ -66,7 +78,88 @@ The exact parameters each tool accepts are defined directly in the tool descript
 
 ---
 
-## Configuration
+## 🗂️ Project Structure
+
+```
+Aviation-Stack-MCP/
+│
+├── src/
+│   └── main/
+│       ├── java/
+│       │   ├── mcp/
+│       │   │   ├── AviationStackMcpApplication.java
+│       │   │   ├── AviationStackTools.java
+│       │   │   ├── AviationStackConfiguration.java
+│       │   │   ├── McpAuthConfig.java
+│       │   │   └── McpAuthenticationAspect.java
+│       │   │
+│       │   └── rest/
+│       │       ├── AviationStackClient.java
+│       │       └── AviationStackConfig.java
+│       │
+│       └── resources/
+│           └── application.properties
+│
+├── Dockerfile
+├── build.gradle.kts
+└── settings.gradle.kts
+```
+
+### How a request flows
+
+Before examining what each file does, it helps to see the order in which the code gets executed. Here's what occurs, step by step, when a client makes a tool call:
+
+1. The client sends a request to `/mcp`, with an `X-API-Key` header attached. This path is not related to the mcp/ Java package <br> shown in the project structure above; it is simply the default endpoint that Spring AI registers automatically based on the `spring.ai.mcp.server.protocol=STREAMABLE` setting in `application.properties`.
+
+2. **`McpAuthenticationAspect.java`** catches that request and checks the header's value against the value that is stored in `McpAuthConfig.java`. If the two don't match, the request gets rejected and does not go any further.
+
+3. If the key checks out, the request reaches the matching `@McpTool` method inside **`AviationStackTools.java`**. For `getScheduledFlights` tool specifically, this file also has to decide whether to use AviationStack's live timetable or <br> its future-flights endpoint, depending on how far ahead in time the requested flight date is.
+
+4. **`AviationStackClient.java`** takes over from there: it builds the actual query parameters and sends the HTTP request <br> to the AviationStack API — the external third-party service this whole project wraps, not anything internal to this codebase.
+
+5. The response then travels back the same way it came forward: AviationStack API → **`AviationStackClient.java`** → **`AviationStackTools.java`** → the client.
+
+**`AviationStackMcpApplication.java`** isn't part of this chain. It only runs once, when the server starts up, just to get everything else wired together and ready to go.
+
+### File-by-file reference
+
+Now that the code execution process was shown, here's an explanation of what each file actually does. Different files are grouped together on the basis of the type of role they have:
+
+**Startup**
+
+**`AviationStackMcpApplication.java`** is where the server starts. It is the [Spring Boot](#glossary) application's entry point, and its only job is to hand control over to Spring Boot once the program runs. It contains no other logic.
+
+**Tools and business logic (steps 3 and 4 above)**
+
+- **`AviationStackTools.java`** defines all five [MCP tools](#glossary) this server exposes: `getFlights`, `getAirlines`, `getAirports`, `getRoutes` and `getScheduledFlights`. Each one carries an `@McpTool` annotation, and a description written inside that annotation. These descriptions are what the LLM reads in order to decide which tool to call - so this file acts as a sort of "menu" from which the AI chooses the most appropriate tool given the content of the user's prompt. This file also contains the logic for `getScheduledFlights` that decides whether a request should be routed to the AviationStack API's live timetable endpoint or its future-flights endpoint, based on the flight date being requested.
+
+- **`AviationStackClient.java`** is the file that actually talks to AviationStack API. It puts together the right query parameters for whichever endpoint is needed (flights, airlines, airports, routes, timetable or future flights), sends the HTTP request and hands the raw response back to **`AviationStackTools.java`**.
+
+- **`AviationStackConfiguration.java`** is a short Spring configuration class with one job: create the **`AviationStackClient`** [bean](#glossary) so Spring can automatically plug it into **`AviationStackTools.java`**. 
+
+**Authentication (step 2 above)**
+
+**`McpAuthenticationAspect.java`** is the file that enforces the authentication check on every tool call. It intercepts every request that reaches an `@McpTool`-annotated method, checks the `X-API-Key` header against the value held in `McpAuthConfig.java` and rejects the request if the two values do not match.
+
+**`McpAuthConfig.java`** holds the configuration for the `X_API_HEADER_KEY` value described in [Configuration](#configuration), reading it in from the environment variable so that it can be checked against incoming requests.
+
+**Configuration**
+
+- **`application.properties`** holds the server's runtime settings: which MCP transport it uses ([Streamable HTTP](#glossary)), whether authentication is switched on and where to look for the `AVIATIONSTACK_API_KEY`.
+
+- **`AviationStackConfig.java`** is a small helper that loads the `AVIATIONSTACK_API_KEY` — checking the environment variable first, then falling back to `application.properties` if it's not set there. If neither source has a key, it fails immediately with a clear error message, rather than letting the server start in a broken state.
+
+**Build and deployment**
+
+- **`Dockerfile`** defines how to build the container image: one stage compiles the project and a smaller second stage actually runs it.
+
+- **`build.gradle.kts`** is the build configuration file — it's where you'd see that the project runs on Java 25, Spring Boot 3.5 and Spring AI 1.1.2.
+
+- **`settings.gradle.kts`** simply sets the Gradle project's name. It doesn't affect how the server behaves; it's standard Gradle boilerplate code.
+
+---
+
+## ⚙️ Configuration
 
 The server requires two environment variables to be set before it will start successfully.
 
@@ -79,7 +172,7 @@ The `X_API_HEADER_KEY` is not provided by AviationStack; it is a value defined w
 
 ---
 
-## Running the Server
+## 🚀 Running the Server
 
 ### Step 1: Obtain an AviationStack API key
 
@@ -109,7 +202,7 @@ A request to that endpoint without the correct `X-API-Key` header will be reject
 
 ---
 
-## Connecting to Claude Desktop
+## 🔌 Connecting to Claude Desktop
 
 Claude Desktop's two supported ways of reaching a remote MCP server are a graphical [custom connector](#glossary), and a manual edit of its configuration file. Which one applies depends on whether the server is reachable from the public internet or only running locally.
 
@@ -164,7 +257,7 @@ If the server is only running locally (for example, with `./gradlew bootRun` on 
 
 ---
 
-## Testing the Connection
+## ✅ Testing the Connection
 
 Once connected, a natural-language prompt referencing flight data should cause Claude to discover and call one of the tools listed in [Available Tools](#available-tools). For example, asking about direct flights between two specific airports should trigger the `getRoutes` tool, while asking about an airport's current departures should trigger `getScheduledFlights`.
 
@@ -172,7 +265,7 @@ If Claude responds without attempting to call a tool, or states that it does not
 
 ---
 
-## Troubleshooting
+## 🩺 Troubleshooting
 
 **Claude Desktop does not list the connector after restarting.** Confirm that the configuration file is valid JSON; a single misplaced comma or bracket will cause Claude Desktop to silently ignore the entire file rather than reporting an error. Restarting must mean fully quitting the application, not just closing its window.
 
